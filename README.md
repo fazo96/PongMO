@@ -6,7 +6,7 @@ I built this a very small project to learn dynamic web-app developement.
 
 ## Preparation
 Clone this repo then in the root folder run `npm install`, then in the
-`client` folder run `bower init`. This makes sure you have all the necessary
+`client` folder run `bower install`. This makes sure you have all the necessary
 client and server dependences installed
 
 Run the app on the server with `node app.js` then point your browser to the
