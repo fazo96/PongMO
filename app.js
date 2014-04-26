@@ -16,9 +16,16 @@ io.sockets.on('connection', function(socket){
             io.sockets.emit('ball',data);
             console.log('New ball position: '+data);
         });
+        socket.on('points',function(data){
+            io.sockets.emit('points',data);
+            console.log('Points updated: '+data);
+        });
     }
     else if(p2 == null) { p2 = socket; socket.emit('player',2);}
-    else socket.emit('player',0);
+    else {
+        socket.emit('player',0);
+        p1.emit('reqpoints'); p1.emit('reqball');
+    }
     if(p1 != null && p2 != null)
         io.sockets.emit('status',1); //1 is play, 0 is stop
 
