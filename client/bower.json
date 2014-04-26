@@ -1,0 +1,31 @@
+{
+  "name": "PongMO Client",
+  "version": "0.0.1",
+  "authors": [
+    "Enrico Fasoli (fazo96)"
+  ],
+  "description": "Multiplayer online pong webapp written in node.js",
+  "main": "index.html",
+  "moduleType": [
+    "node"
+  ],
+  "keywords": [
+    "game",
+    "multiplayer",
+    "online",
+    "node"
+  ],
+  "license": "MIT",
+  "homepage": "http://github.com/fazo96/pongmo",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "crafty": "~0.6.2"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "PongMO",
+  "version": "0.0.1",
+  "description": "multiplayer online pong written entirely for the browser, using node.js",
+  "main": "app.js",
+  "dependencies": {
+    "express": "~4.1.0",
+    "socket.io": "~0.9.16"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "node app"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/fazo96/pongmo"
+  },
+  "keywords": [
+    "pong",
+    "game",
+    "multiplayer",
+    "online"
+  ],
+  "author": "Enrico Fasoli (fazo96)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/fazo96/pongmo/issues"
+  },
+  "homepage": "https://github.com/fazo96/pongmo"
+}
