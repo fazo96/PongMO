@@ -9,6 +9,10 @@ Clone this repo then in the root folder run `npm install`, then in the
 `client` folder run `bower install`. This makes sure you have all the necessary
 client and server dependences installed
 
+**Important:** go to the file `client/game.js`, search for the string `localhost`
+and make sure you change it to a valid IP address or hostname or **the client
+won't be able to connect!**
+
 Run the app on the server with `node app.js` then point your browser to the
 machine's IP address/hostname on port `3000` (by default).
 
