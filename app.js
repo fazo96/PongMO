@@ -9,9 +9,12 @@ var p1 = null, p2 = null;
 
 io.sockets.on('connection', function(socket){
     console.log('connection incoming');
-    if(p1 == null) {
+    // Connection incoming
+    if(p1 === null) { // Player 1 is null, so this guy will be P1
         p1 = socket;
         socket.emit('player',1);
+        // The Player 1 "commands" the game and provides the data, the server
+        // just sends the data to other players.
         socket.on('ball',function(data){
             io.sockets.emit('ball',data);
             console.log('New ball position: '+data);
@@ -21,12 +24,16 @@ io.sockets.on('connection', function(socket){
             console.log('Points updated: '+data);
         });
     }
-    else if(p2 == null) { p2 = socket; socket.emit('player',2);}
-    else {
+    else if(p2 === null) { // Player 2 is null, so this guy will be P2
+        p2 = socket; 
+        socket.emit('player',2);
+    }
+    else { // There are already 2 players, so this guy will spectate
         socket.emit('player',0);
+        // Request newest game info
         p1.emit('reqpoints'); p1.emit('reqball');
     }
-    if(p1 != null && p2 != null)
+    if(p1 !== null && p2 !== null)
         io.sockets.emit('status',1); //1 is play, 0 is stop
 
     socket.on('move',function(pos){

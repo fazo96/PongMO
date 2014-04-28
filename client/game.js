@@ -25,6 +25,8 @@ var rightpoints = Crafty.e("RightPoints, DOM, 2D, Text")
     .attr({ x: 515, y: 20, w: 100, h: 20, points: 0 })
     .text("0 Points");
 
+// WARNING: MAKE SURE THIS LINE CONTAINS A VALID HOSTNAME/IP ADDRESS AND PORT
+// WHERE YOUR SERVER IS RUNNING!
 var socket = io.connect('http://localhost:3000');
 
 socket.on('connection',function(){
