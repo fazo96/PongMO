@@ -4,6 +4,10 @@
 
 var paused = true;
 var player = -1;
+var board = document.getElementById("board");
+board.innerHTML="connecting..."
+var spectators = 0;
+var p1conn = false, p2conn = false;
 
 Crafty.init(600, 300, document.getElementById('game'));
 Crafty.background('rgb(127,127,127)');
@@ -25,21 +29,33 @@ var rightpoints = Crafty.e("RightPoints, DOM, 2D, Text")
     .attr({ x: 515, y: 20, w: 100, h: 20, points: 0 })
     .text("0 Points");
 
-// WARNING: MAKE SURE THIS LINE CONTAINS A VALID HOSTNAME/IP ADDRESS AND PORT
-// WHERE YOUR SERVER IS RUNNING!
-var socket = io.connect('http://localhost:3000');
+console.log('Connecting WebSocket to '+window.location);
+var socket = io.connect();
 
 socket.on('connection',function(){
     console.log("connected");
 });
 
+function writeInfo(){
+    board.innerHTML = (player==1?"You":(p1conn?"Online P1":"Nobody"))+
+        " vs "+(player==2?"You":(p2conn?"Online P2":"Nobody"))+
+        ", "+spectators+" spectators";
+}
+
+socket.on('players',function(data){
+    spectators = data.spectat;
+    p1conn = data.one; p2conn = data.two;
+    writeInfo();
+})
+
 socket.on('player',function(num){
     if(player == -1){
         console.log('Player: '+num);
         player = num;
+        
         var p;
-        if(player == 1) p = p1;
-        else if (player == 2) p = p2;
+        if(player == 1){ p = p1; }
+        else if (player == 2){ p = p2; }
         if(player == 1 || player == 2){
             p.multiway(4, { UP_ARROW: -90, DOWN_ARROW: 90 });
             p.bind('Move',function(){
@@ -74,15 +90,19 @@ var ball = Crafty.e("2D, DOM, Color, Collision")
         }
         if (this.x > 600) {
             this.x = 300;
-            if(player==1) ++leftpoints.points;
-            leftpoints.text(leftpoints.points + " Points");
-            sendPoints();
+            if(player==1){
+                ++leftpoints.points;
+                leftpoints.text(leftpoints.points + " Points");
+                sendPoints();
+            }
         }
         if (this.x < 10) {
             this.x = 300;
-            if(player==1) ++rightpoints.points;
-            rightpoints.text(rightpoints.points + " Points");
-            sendPoints();
+            if(player==1){
+                ++rightpoints.points;
+                rightpoints.text(rightpoints.points + " Points");
+                sendPoints();
+            }
         }
         if(!paused){
             this.x += this.dX;
@@ -107,7 +127,7 @@ socket.on('ball', function(b){
     if(player != 1){
         ball.x = b.x; ball.y = b.y;
         ball.dX = b.dX; ball.dY = b.dY;
-        console.log("received ball data");
+        console.log("received ball data: "+b);
     }
 });
 
@@ -123,11 +143,11 @@ socket.on('points',function(data){
 
 socket.on('reqpoints', function(){
     sendPoints();
-})
+});
 
 socket.on('reqball',function(){
     sendBall();
-})
+});
 
 socket.on('move1',function(pos){
     if(player!=1){
@@ -143,8 +163,17 @@ socket.on('move2',function(pos){
     }
 });
 
-socket.on('status',function(num){
-    paused = (num==0);
-    if(paused == false) sendBall();
+socket.on('pause',function(num){
+    paused = num;
+    writeInfo();
+    if(num){
+        if(player == 1){
+            ball.x = 300; ball.y = 150;
+            sendBall();
+        }
+        p1.y = 100; p2.y = 100;
+        leftpoints.points = 0; rightpoints.points = 0;
+        leftpoints.text("0 Points"); rightpoints.text("0 Points");
+    }
     console.log("Game is now "+(paused?"paused":"resumed"));
 });
