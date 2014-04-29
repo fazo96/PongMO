@@ -52,9 +52,9 @@ socket.on('player',function(num){
     if(player == -1){
         console.log('Player: '+num);
         player = num;
-        
+
         var p;
-        if(player == 1){ p = p1; }
+        if(player == 1){ p = p1;  sendBall();}
         else if (player == 2){ p = p2; }
         if(player == 1 || player == 2){
             p.multiway(4, { UP_ARROW: -90, DOWN_ARROW: 90 });
@@ -82,26 +82,22 @@ var ball = Crafty.e("2D, DOM, Color, Collision")
             dY: Crafty.math.randomInt(2, 5) })
     .bind('EnterFrame', function () {
         //hit floor or roof
-        if (this.y <= 0 || this.y >= 290){
-            if(player==1){
-                this.dY *= -1;
-                sendBall();
+        if(player == 1){
+            if (this.y <= 0 || this.y >= 290){
+                    this.dY *= -1;
+                    sendBall();
             }
-        }
-        if (this.x > 600) {
-            this.x = 300;
-            if(player==1){
-                ++leftpoints.points;
-                leftpoints.text(leftpoints.points + " Points");
-                sendPoints();
+            if (this.x > 600) {
+                this.x = 300;
+                    ++leftpoints.points;
+                    leftpoints.text(leftpoints.points + " Points");
+                    sendPoints();
             }
-        }
-        if (this.x < 10) {
-            this.x = 300;
-            if(player==1){
-                ++rightpoints.points;
-                rightpoints.text(rightpoints.points + " Points");
-                sendPoints();
+            if (this.x < 10) {
+                this.x = 300;
+                    ++rightpoints.points;
+                    rightpoints.text(rightpoints.points + " Points");
+                    sendPoints();
             }
         }
         if(!paused){
@@ -119,7 +115,7 @@ var ball = Crafty.e("2D, DOM, Color, Collision")
 function sendBall(){
     if(player==1){
         socket.emit('ball',{x : ball.x, y: ball.y, dX: ball.dX, dY: ball.dY });
-        console.log('sent ball data');
+        console.log('Sent this ball data: '+ball.x+' '+ball.y+' '+ball.dX+' '+ball.dY);
     }
 }
 
@@ -127,8 +123,8 @@ socket.on('ball', function(b){
     if(player != 1){
         ball.x = b.x; ball.y = b.y;
         ball.dX = b.dX; ball.dY = b.dY;
-        console.log("received ball data: "+b);
-    }
+        console.log('Received this ball data: '+ball.x+' '+ball.y+' '+ball.dX+' '+ball.dY);
+    } else console.log('refused ball data');
 });
 
 socket.on('points',function(data){
