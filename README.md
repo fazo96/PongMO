@@ -19,7 +19,8 @@ For example, if you want to run it on your *nix / Mac OS machine you can connect
 to the local machine by navigating your browser to http://localhost:3000/
 
 ### Code quality
-I'm not good yet with javascript and i realize the code is horrible.
+I'm not good yet with js and coffeescript and I realize things could be done
+in better ways.
 
 ## Play
 The first user that connects is the player 1, the second user is the player 2, the
