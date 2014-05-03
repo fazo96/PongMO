@@ -9,6 +9,9 @@ Clone this repo then in the root folder run `npm install`, then in the
 `client` folder run `bower install`. This makes sure you have all the necessary
 client and server dependences installed
 
+If you made changes to the `<name>.coffee` files, please compile them
+to `<name>.js`
+
 Run the app on the server with `node app.js` then point your browser to the
 machine's IP address/hostname on port `3000` (by default).
 
