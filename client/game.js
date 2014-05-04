@@ -1,18 +1,30 @@
-var ball, board, leftpoints, p1, p1conn, p2, p2conn, paused, player, rightpoints, sendBall, sendPoints, socket, spectators, writeInfo;
+var ball, board, connectTo, id, idTo, leftpoints, p1, p2, paused, peer, player, player1, player2, rightpoints, sendBall, sendPoints, spectators, spectnum, writeInfo;
 
 paused = true;
 
 player = -1;
 
+player1 = null;
+
+player2 = null;
+
+spectators = [];
+
+spectnum = 0;
+
+id = null;
+
+idTo = window.location.hash.slice(1);
+
 board = document.getElementById("board");
 
-board.innerHTML = "Connecting...";
+board.innerHTML = "Connecting to " + idTo;
 
-spectators = 0;
+if (idTo === "") {
+  board.innerHTML = "Connecting...";
+}
 
-p1conn = false;
-
-p2conn = true;
+console.log(idTo);
 
 Crafty.init(600, 300, document.getElementById("game"));
 
@@ -47,59 +59,6 @@ rightpoints = Crafty.e("DOM, 2D, Text").attr({
   h: 20,
   points: 0
 }).text("0 Points");
-
-socket = io.connect();
-
-socket.on("connection", function() {
-  return console.log("Connected");
-});
-
-writeInfo = function() {
-  board.innerHTML = (player === 1 ? "You" : (p1conn ? "Online P1" : "Nobody")) + " vs " + (player === 2 ? "You" : (p2conn ? "Online P2" : "Nobody"));
-  return +", spectators: " + spectators;
-};
-
-socket.on("players", function(data) {
-  spectators = data.spectat;
-  p1conn = data.one;
-  p2conn = data.two;
-  return writeInfo();
-});
-
-socket.on("player", function(num) {
-  var p;
-  if (player === -1) {
-    console.log("Player: " + num);
-    player = num;
-    p = null;
-    if (player === 1) {
-      p = p1;
-      sendBall();
-    } else if (player === 2) {
-      p = p2;
-    }
-    if (player === 1 || player === 2) {
-      p.multiway(4, {
-        UP_ARROW: -90,
-        DOWN_ARROW: 90
-      });
-      return p.bind('Move', function() {
-        return socket.emit('move', p.y);
-      });
-    }
-  } else {
-    return console.log('WARNING: New player ID received??');
-  }
-});
-
-sendPoints = function() {
-  if (player === 1) {
-    return socket.emit('points', {
-      left: leftpoints.points,
-      right: rightpoints.points
-    });
-  }
-};
 
 ball = Crafty.e("2D, DOM, Color, Collision").color('rgb(0,0,255)').attr({
   x: 300,
@@ -139,66 +98,180 @@ ball = Crafty.e("2D, DOM, Color, Collision").color('rgb(0,0,255)').attr({
 });
 
 sendBall = function() {
+  var p, packet, _i, _len;
   if (player === 1) {
-    return socket.emit('ball', {
+    packet = {
+      msg: 'ball',
       x: ball.x,
       y: ball.y,
       dX: ball.dX,
       dY: ball.dY
-    });
+    };
+    for (_i = 0, _len = spectators.length; _i < _len; _i++) {
+      p = spectators[_i];
+      p.send(packet);
+    }
+    if (player2 !== null) {
+      return player2.send(packet);
+    }
   }
 };
 
-socket.on('ball', function(b) {
-  if (player !== 1) {
-    ball.x = b.x;
-    ball.y = b.y;
-    ball.dX = b.dX;
-    return ball.dY = b.dY;
+writeInfo = function() {
+  board.innerHTML = (player === 1 ? "You" : (player1 !== null ? "Online P1" : "Nobody")) + " vs " + (player === 2 ? "You" : (player2 !== null ? "Online P2" : "Nobody"));
+  return +", spectators: " + (player === 1 ? spectators.length : spectnum);
+};
+
+sendPoints = function() {
+  var p, packet, _i, _len, _results;
+  if (player === 1) {
+    packet = {
+      msg: 'points',
+      left: leftpoints.points,
+      right: rightpoints.points
+    };
+    if (player2 !== null) {
+      player2.send(packet);
+    }
+    _results = [];
+    for (_i = 0, _len = spectators.length; _i < _len; _i++) {
+      p = spectators[_i];
+      _results.push(p.send(packet));
+    }
+    return _results;
   }
+};
+
+connectTo = function(id) {
+  var conn;
+  conn = peer.connect(id);
+  conn.on('close', function() {
+    return console.log("Closed remote connection");
+  });
+  return conn.on('data', function(data) {
+    var p;
+    if (data.msg === 'nope') {
+      player = -1;
+      return console.log('Connection refused!');
+    } else if (data.msg === 'ball') {
+      ball.x = b.x;
+      ball.y = b.y;
+      ball.dX = b.dX;
+      return ball.dY = b.dY;
+    } else if (data.msg === 'you') {
+      player = data.you;
+      p = null;
+      console.log("Received info packet, I'm P" + player);
+      if (player === 1) {
+        p = p1;
+      } else if (player === p2) {
+        p = 2;
+      } else {
+        p = null;
+      }
+      if (p !== null) {
+        p.multiway(4, {
+          UP_ARROW: -90,
+          DOWN_ARROW: 90
+        });
+        return p.bind('Move', function() {
+          return conn.send({
+            msg: 'pos',
+            pos: p.y
+          });
+        });
+      }
+    } else if (data.msg === 'points') {
+      leftpoints.points = data.left;
+      rightpoints.points = data.right;
+      rightpoints.text("" + rightpoints.points + " Points");
+      return leftpoints.text("" + leftpoints.points + " Points");
+    } else if (data.msg === 'pos') {
+      return p1.y = data.pos;
+    } else if (data.msg === 'status') {
+      paused = data.paused;
+      spectnum = spectators.length;
+      writeInfo();
+      if (paused) {
+        ball.x = 300;
+        ball.y = 150;
+        leftpoints.points = 0;
+        rightpoints.points = 0;
+        rightpoints.text("0 Points");
+        leftpoints.text("0 Points");
+      }
+      return console.log("Game is now " + (paused === true ? "paused" : "resumed"));
+    }
+  });
+};
+
+peer = new Peer({
+  key: 'c0ae8qi4pvp4aemi'
 });
 
-socket.on('points', function(data) {
-  if (player !== 1) {
-    leftpoints.points = data.left;
-    rightpoints.points = data.right;
-    rightpoints.text(rightpoints.points + " Points");
-    return leftpoints.text(leftpoints.points + " Points");
+if (idTo !== null) {
+  connectTo(idTo);
+}
+
+peer.on("open", function(data) {
+  id = data;
+  return console.log("My ID is " + id);
+});
+
+peer.on("error", function(err) {
+  console.log("Fatal peer error!");
+  return board.innerHTML = "Fatal connection error!";
+});
+
+peer.on("close", function() {
+  return console.log("Closed peer");
+});
+
+peer.on('connection', function(conn) {
+  var s, _i, _len, _results;
+  if (player !== -1) {
+    conn.send({
+      msg: 'nope'
+    });
+    console.log('Refused connection');
+    conn.close();
+    return;
   }
-});
-
-socket.on('reqpoints', function() {
-  return sendPoints();
-});
-
-socket.on('reqball', function() {
-  return sendBall();
-});
-
-socket.on('move1', function(pos) {
-  if (player !== 1) {
-    return p1.y = pos;
+  player = 1;
+  player1 = -1;
+  if (player2 === null) {
+    player2 = conn;
+    conn.send({
+      msg: 'you',
+      you: 2
+    });
+    console.log('Assigned player 2');
+    paused = false;
+    console.log("Game started");
+    sendInfo();
+    conn.on('data', function(data) {
+      if (data.msg === 'pos') {
+        return p2.y = data.pos;
+      }
+    });
+  } else {
+    spectators.push(conn);
+    console.log('Assigned spectator');
+    conn.send({
+      msg: 'you',
+      you: 0
+    });
   }
-});
-
-socket.on('move2', function(pos) {
-  if (player !== 2) {
-    return p2.y = pos;
+  _results = [];
+  for (_i = 0, _len = spectators.length; _i < _len; _i++) {
+    s = spectators[_i];
+    _results.push(s.send({
+      msg: 'status',
+      paused: paused,
+      p1: player1 !== null,
+      p2: player2 !== null,
+      spectators: spectators.length
+    }));
   }
-});
-
-socket.on('pause', function(data) {
-  paused = data;
-  writeInfo();
-  if (data) {
-    ball.x = 300;
-    ball.y = 150;
-    p1.y = 100;
-    p2.y = 100;
-    leftpoints.points = 0;
-    rightpoints.points = 0;
-    leftpoints.text("0 Points");
-    rightpoints.text("0 Points");
-  }
-  return console.log("Game is now " + (paused === true ? "paused" : "resumed"));
+  return _results;
 });

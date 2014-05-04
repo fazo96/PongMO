@@ -1,9 +1,15 @@
 paused = yes
 player = -1
+player1 = null; player2 = null
+spectators = []; spectnum = 0
+id = null
+idTo = window.location.hash[1..]
+
 board = document.getElementById "board"
-board.innerHTML = "Connecting..."
-spectators = 0
-p1conn = false; p2conn = true
+board.innerHTML = "Connecting to "+idTo
+board.innerHTML = "Connecting..." unless idTo isnt ""
+
+console.log idTo
 
 Crafty.init 600, 300, document.getElementById "game"
 Crafty.background 'rgb(126, 126, 126)'
@@ -60,85 +66,121 @@ ball = Crafty.e "2D, DOM, Color, Collision"
 
 sendBall = ->
     if player is 1
-        socket.emit 'ball', {
-            x: ball.x, y: ball.y, dX: ball.dX, dY: ball.dY
+        packet = {
+            msg: 'ball', x: ball.x, y: ball.y, dX: ball.dX, dY: ball.dY
         }
+        for p in spectators
+            p.send packet
+        if player2 isnt null
+            player2.send packet
 
 writeInfo = ->
     board.innerHTML = (if player is 1 then "You" else
-        (if p1conn then "Online P1" else "Nobody")) + " vs " +
-        (if player is 2 then "You" else (if p2conn then "Online P2" else "Nobody"))
-        + ", spectators: "+spectators
+        (if player1 isnt null then "Online P1" else "Nobody")) + " vs " +
+        (if player is 2 then "You" else (if player2 isnt null then "Online P2" else "Nobody"))
+        + ", spectators: " + if player is 1 then spectators.length else spectnum
 
 sendPoints = ->
     if player is 1
-        socket.emit 'points', {
+        packet =
+            msg: 'points'
             left: leftpoints.points
             right: rightpoints.points
-        }
+        if player2 isnt null
+            player2.send packet
+        for p in spectators
+            p.send packet
+
+connectTo = (id) ->
+    conn = peer.connect id
+    conn.on 'close', ->
+        console.log "Closed remote connection"
+    conn.on 'data', (data) ->
+        if data.msg is 'nope'
+            # the peer has refused to player
+            player = -1
+            console.log 'Connection refused!'
+        # 'Ball' packet
+        else if data.msg is 'ball'
+            ball.x = b.x; ball.y = b.y
+            ball.dX = b.dX; ball.dY = b.dY
+        # 'You' packet
+        else if data.msg is 'you'
+            player = data.you ; p = null
+            console.log "Received info packet, I'm P"+player
+            if player is 1
+                p = p1
+            else if player is p2
+                 p = 2
+            else p = null
+            if p isnt null
+                p.multiway 4, { UP_ARROW: -90, DOWN_ARROW: 90 }
+                p.bind 'Move', ->
+                    conn.send { msg: 'pos', pos: p.y }
+        # 'Points' packet
+        else if data.msg is 'points'
+            leftpoints.points = data.left
+            rightpoints.points = data.right
+            rightpoints.text "#{rightpoints.points} Points"
+            leftpoints.text "#{leftpoints.points} Points"
+        # 'Pos' packet
+        else if data.msg is 'pos'
+            p1.y = data.pos
+        # 'Status' packet
+        else if data.msg is 'status'
+            paused = data.paused
+            spectnum = spectators.length
+            writeInfo()
+            if paused
+                ball.x = 300; ball.y = 150
+                leftpoints.points = 0
+                rightpoints.points = 0
+                rightpoints.text "0 Points"
+                leftpoints.text "0 Points"
+            console.log "Game is now " + if paused is true then "paused" else "resumed"
 
 # Connect
+peer = new Peer { key: 'c0ae8qi4pvp4aemi' }
 
-socket = io.connect()
+if idTo isnt null
+    connectTo idTo
 
+peer.on "open", (data) ->
+    id = data
+    console.log "My ID is #{id}"
 
-# React to incoming events
+peer.on "error", (err) ->
+    console.log "Fatal peer error!"
+    board.innerHTML = "Fatal connection error!"
 
-socket.on "connection", ->
-    console.log "Connected"
+peer.on "close", ->
+    console.log "Closed peer"
 
-socket.on 'ball', (b) ->
-    if player isnt 1
-        ball.x = b.x; ball.y = b.y
-        ball.dX = b.dX; ball.dY = b.dY
-
-socket.on 'points', (data) ->
-    if player isnt 1
-        leftpoints.points = data.left
-        rightpoints.points = data.right
-        rightpoints.text rightpoints.points + " Points"
-        leftpoints.text leftpoints.points + " Points"
-
-socket.on 'reqpoints', ->
-    sendPoints()
-
-socket.on 'reqball', ->
-    sendBall()
-
-socket.on 'move1', (pos) ->
-    if player isnt 1
-        p1.y = pos
-
-socket.on 'move2', (pos) ->
-    if player isnt 2
-        p2.y = pos
-
-socket.on "players", (data) ->
-    spectators = data.spectat
-    p1conn = data.one; p2conn = data.two
-    writeInfo()
-
-socket.on "player", (num) ->
-    if player is -1
-        console.log "Player: "+num
-        player = num
-        p = null
-        if player is 1
-            p = p1; sendBall()
-        else if player is 2
-            p = p2
-        if player is 1 or player is 2
-            p.multiway 4, { UP_ARROW: -90, DOWN_ARROW: 90 }
-            p.bind 'Move', ->
-                socket.emit 'move', p.y
-    else console.log 'WARNING: New player ID received??'
-
-socket.on 'pause', (data) ->
-    paused = data
-    writeInfo()
-    if data
-        ball.x = 300; ball.y = 150
-        p1.y = 100; p2.y = 100
-        leftpoints.points = 0; rightpoints.points = 0
-        leftpoints.text "0 Points" ; rightpoints.text "0 Points"
-    console.log "Game is now " + if paused is true then "paused" else "resumed"
+# Incoming connection
+peer.on 'connection', (conn) ->
+    if player isnt -1
+        conn.send { msg: 'nope' }
+        console.log 'Refused connection'
+        conn.close(); return
+    player = 1; player1 = -1
+    if player2 is null
+        player2 = conn
+        conn.send { msg: 'you', you: 2 }
+        console.log 'Assigned player 2'
+        paused = false ; console.log "Game started"
+        sendInfo()
+        conn.on 'data', (data) ->
+            if data.msg is 'pos'
+                p2.y = data.pos
+    else
+        spectators.push conn
+        console.log 'Assigned spectator'
+        conn.send { msg: 'you', you: 0 }
+    for s in spectators
+        s.send {
+            msg: 'status'
+            paused : paused
+            p1: player1 isnt null
+            p2: player2 isnt null
+            spectators: spectators.length
+        }

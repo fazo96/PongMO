@@ -30,4 +30,4 @@ tested).
 The game wasn't tested much but you should be able to play fine.
 
 ## License
-MIT
+GPLv3
