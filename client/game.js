@@ -1,4 +1,4 @@
-var ball, board, connectTo, id, idTo, leftpoints, p1, p2, paused, peer, player, player1, player2, rightpoints, sendBall, sendPoints, spectators, spectnum, writeInfo;
+var ball, board, connectTo, id, idTo, leftpoints, p1, p2, paused, peer, player, player1, player2, rightpoints, sendBall, sendPoints, server, spectators, spectnum, writeInfo;
 
 paused = true;
 
@@ -14,6 +14,8 @@ spectnum = 0;
 
 id = null;
 
+server = true;
+
 idTo = window.location.hash.slice(1);
 
 board = document.getElementById("board");
@@ -21,10 +23,8 @@ board = document.getElementById("board");
 board.innerHTML = "Connecting to " + idTo;
 
 if (idTo === "") {
-  board.innerHTML = "Connecting...";
+  board.innerHTML = "Hosting game. Awaiting for ID";
 }
-
-console.log(idTo);
 
 Crafty.init(600, 300, document.getElementById("game"));
 
@@ -118,7 +118,7 @@ sendBall = function() {
 };
 
 writeInfo = function() {
-  board.innerHTML = (player === 1 ? "You" : (player1 !== null ? "Online P1" : "Nobody")) + " vs " + (player === 2 ? "You" : (player2 !== null ? "Online P2" : "Nobody"));
+  board.innerHTML = (player === 1 ? "You: " + id : (player1 !== null ? "P1: " + idTo : "Nobody")) + " vs " + (player === 2 ? "You: " + id : (player2 !== null ? "P2: " + idTo : "Nobody"));
   return +", spectators: " + (player === 1 ? spectators.length : spectnum);
 };
 
@@ -144,6 +144,8 @@ sendPoints = function() {
 
 connectTo = function(id) {
   var conn;
+  console.log("Trying connection to " + idTo);
+  server = false;
   conn = peer.connect(id);
   conn.on('close', function() {
     return console.log("Closed remote connection");
@@ -152,12 +154,14 @@ connectTo = function(id) {
     var p;
     if (data.msg === 'nope') {
       player = -1;
-      return console.log('Connection refused!');
+      console.log('Connection refused!');
+      return board.innerHTML = "Connection refused by remote player";
     } else if (data.msg === 'ball') {
-      ball.x = b.x;
-      ball.y = b.y;
-      ball.dX = b.dX;
-      return ball.dY = b.dY;
+      console.log("ball packet");
+      ball.x = data.x;
+      ball.y = data.y;
+      ball.dX = data.dX;
+      return ball.dY = data.dY;
     } else if (data.msg === 'you') {
       player = data.you;
       p = null;
@@ -209,18 +213,20 @@ peer = new Peer({
   key: 'c0ae8qi4pvp4aemi'
 });
 
-if (idTo !== null) {
-  connectTo(idTo);
-}
-
 peer.on("open", function(data) {
   id = data;
-  return console.log("My ID is " + id);
+  console.log("My ID is " + id);
+  if (idTo === "" || idTo === null || idTo === void 0) {
+    return board.innerHTML = "Awaiting connections. ID: " + id;
+  } else {
+    return board.innerHTML = "ID: " + id + " - Connecting to " + idTo;
+  }
 });
 
 peer.on("error", function(err) {
-  console.log("Fatal peer error!");
-  return board.innerHTML = "Fatal connection error!";
+  board.innerHTML = "Fatal connection error: " + err;
+  paused = true;
+  return peer.close();
 });
 
 peer.on("close", function() {
@@ -229,7 +235,8 @@ peer.on("close", function() {
 
 peer.on('connection', function(conn) {
   var s, _i, _len, _results;
-  if (player !== -1) {
+  console.log(player + " " + server);
+  if (server === false || player !== -1) {
     conn.send({
       msg: 'nope'
     });
@@ -237,6 +244,7 @@ peer.on('connection', function(conn) {
     conn.close();
     return;
   }
+  console.log("Incoming connection!");
   player = 1;
   player1 = -1;
   if (player2 === null) {
@@ -246,9 +254,19 @@ peer.on('connection', function(conn) {
       you: 2
     });
     console.log('Assigned player 2');
+    p1.multiway(4, {
+      UP_ARROW: -90,
+      DOWN_ARROW: 90
+    });
+    p1.bind('Move', function() {
+      return conn.send({
+        msg: 'pos',
+        pos: p1.y
+      });
+    });
     paused = false;
     console.log("Game started");
-    sendInfo();
+    writeInfo();
     conn.on('data', function(data) {
       if (data.msg === 'pos') {
         return p2.y = data.pos;
@@ -275,3 +293,7 @@ peer.on('connection', function(conn) {
   }
   return _results;
 });
+
+if (idTo !== void 0 && idTo !== "" && idTo !== null) {
+  connectTo(idTo);
+}

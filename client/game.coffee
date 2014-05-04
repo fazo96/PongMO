@@ -3,13 +3,12 @@ player = -1
 player1 = null; player2 = null
 spectators = []; spectnum = 0
 id = null
+server = yes
 idTo = window.location.hash[1..]
 
 board = document.getElementById "board"
 board.innerHTML = "Connecting to "+idTo
-board.innerHTML = "Connecting..." unless idTo isnt ""
-
-console.log idTo
+board.innerHTML = "Hosting game. Awaiting for ID" unless idTo isnt ""
 
 Crafty.init 600, 300, document.getElementById "game"
 Crafty.background 'rgb(126, 126, 126)'
@@ -75,9 +74,9 @@ sendBall = ->
             player2.send packet
 
 writeInfo = ->
-    board.innerHTML = (if player is 1 then "You" else
-        (if player1 isnt null then "Online P1" else "Nobody")) + " vs " +
-        (if player is 2 then "You" else (if player2 isnt null then "Online P2" else "Nobody"))
+    board.innerHTML = (if player is 1 then "You: #{id}" else
+        (if player1 isnt null then "P1: #{idTo}" else "Nobody")) + " vs " +
+        (if player is 2 then "You: #{id}" else (if player2 isnt null then "P2: #{idTo}" else "Nobody"))
         + ", spectators: " + if player is 1 then spectators.length else spectnum
 
 sendPoints = ->
@@ -92,6 +91,8 @@ sendPoints = ->
             p.send packet
 
 connectTo = (id) ->
+    console.log "Trying connection to "+idTo
+    server = off
     conn = peer.connect id
     conn.on 'close', ->
         console.log "Closed remote connection"
@@ -100,10 +101,12 @@ connectTo = (id) ->
             # the peer has refused to player
             player = -1
             console.log 'Connection refused!'
+            board.innerHTML = "Connection refused by remote player"
         # 'Ball' packet
         else if data.msg is 'ball'
-            ball.x = b.x; ball.y = b.y
-            ball.dX = b.dX; ball.dY = b.dY
+            console.log "ball packet"
+            ball.x = data.x; ball.y = data.y
+            ball.dX = data.dX; ball.dY = data.dY
         # 'You' packet
         else if data.msg is 'you'
             player = data.you ; p = null
@@ -142,33 +145,38 @@ connectTo = (id) ->
 # Connect
 peer = new Peer { key: 'c0ae8qi4pvp4aemi' }
 
-if idTo isnt null
-    connectTo idTo
-
 peer.on "open", (data) ->
     id = data
     console.log "My ID is #{id}"
+    if idTo is "" or idTo is null or idTo is undefined
+        board.innerHTML = "Awaiting connections. ID: #{id}"
+    else board.innerHTML = "ID: #{id} - Connecting to #{idTo}"
 
 peer.on "error", (err) ->
-    console.log "Fatal peer error!"
-    board.innerHTML = "Fatal connection error!"
-
+    board.innerHTML = "Fatal connection error: "+err
+    paused = yes
+    peer.close()
 peer.on "close", ->
     console.log "Closed peer"
 
 # Incoming connection
 peer.on 'connection', (conn) ->
-    if player isnt -1
+    console.log player+" "+server
+    if server is no or player isnt -1
         conn.send { msg: 'nope' }
         console.log 'Refused connection'
         conn.close(); return
-    player = 1; player1 = -1
+    console.log "Incoming connection!"
+    player = 1; player1 = -1;
     if player2 is null
         player2 = conn
         conn.send { msg: 'you', you: 2 }
         console.log 'Assigned player 2'
+        p1.multiway 4, { UP_ARROW: -90, DOWN_ARROW: 90 }
+        p1.bind 'Move', ->
+            conn.send { msg: 'pos', pos: p1.y }
         paused = false ; console.log "Game started"
-        sendInfo()
+        writeInfo()
         conn.on 'data', (data) ->
             if data.msg is 'pos'
                 p2.y = data.pos
@@ -184,3 +192,6 @@ peer.on 'connection', (conn) ->
             p2: player2 isnt null
             spectators: spectators.length
         }
+
+if idTo isnt undefined and idTo isnt "" and idTo isnt null
+    connectTo idTo
