@@ -1,2 +1,4 @@
 client/bower_components/
 node_modules/
+source/*.js
+.DS_Store
